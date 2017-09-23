@@ -1,10 +1,9 @@
 const http = require('http');
-const express = require('express');
-const proxy = require('http-proxy-middleware');
+const httpProxy = require('http-proxy');
 const port = 5000
 
 
-var redirectionIP = '127.0.0.1';
+var redirectionIP = null;
 
 const requestHandler = (request, response) => {
 
@@ -19,7 +18,11 @@ const requestHandler = (request, response) => {
             ip = ip.substr(7);
         }
 
-        redirectionIP = ip;
+        if( redirectionIP != ip ){
+            console.log(`IP address changes from ${redirectionIP} to ${ip}`);
+            redirectionIP = ip;
+        }
+        
         response.end(redirectionIP);
 
     } else {
@@ -42,29 +45,28 @@ server.listen(port, (err) => {
   console.log(`Server is listening on ${port}`)
 })
 
+/////////////////////////////////////////
 
+const proxy = httpProxy.createProxyServer({});
 
-const app = express();
-
-const instance = proxy({
-    target: `http://${redirectionIP}:18080`, 
-    changeOrigin: false,
-    onProxyReq : function (proxyReq, req, res) {
-      if( req.method == "GET" ){
-        
-        var url = `http://${redirectionIP}:18080${req.originalUrl}`;
-        res.writeHead(302, {
-            'Location': url
-        });
+http.createServer(function(req, res) {
+    
+    if( req.method == "GET" ){
+        var url = `http://${redirectionIP}:18080${req.url || ''}`;
+        res.writeHead(302, { 'Location': url });
         res.end(url);
-
-        proxyReq.writable = false;
-        proxyReq.finished = true;
-      }
+        return;
     }
-});
-app.use('/', instance);
-app.listen(18080);
+    
+    if( redirectionIP != null && redirectionIP != '' ){
+        proxy.web(req, res, { target: `http://${redirectionIP}:18080` });
+    } else {
+        res.end("No backend server found");
+    }
+}).listen(18080);
+
+
+
 
 
 
