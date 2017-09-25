@@ -50,13 +50,27 @@ server.listen(port, (err) => {
 const proxy = httpProxy.createProxyServer({});
 
 http.createServer(function(req, res) {
-    
+
+    var ua = (req.headers['user-agent'] || '').toLowerCase();
+
+    var enableRedirection = false;
     if( req.method == "GET" ){
+        // DS photo client
+        if( ua.indexOf('ds photo') >= 0 || ua.indexOf('dsphoto') >= 0 ){
+            enableRedirection = ua.indexOf('iOS') > 0 || ua.indexOf('iPhone') > 0 || ua.indexOf('iPad') > 0;
+        } else {
+            enableRedirection = true;
+        }
+    }
+
+
+    if( enableRedirection ){
         var url = `http://${redirectionIP}:18080${req.url || ''}`;
         res.writeHead(302, { 'Location': url });
         res.end(url);
         return;
     }
+
     
     if( redirectionIP != null && redirectionIP != '' ){
         proxy.web(req, res, { target: `http://${redirectionIP}:18080` });
